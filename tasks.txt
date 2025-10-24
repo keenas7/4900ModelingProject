@@ -6,8 +6,19 @@ Claim one of these topics to begin working by setting your name beside it.
 2. Parametric Volcano Topology
 3. Surface Texturing / Visualization
 
-
 Later: Lava Flow Modeling
+
+--------------------------------------------------------------------------------------------------------------
+take a look at the tasks file.
+put down your name beside the task you want. KEENA SWANSON.
+
+write some goals or change the goals to better suit what you think you need to accomplish.
+
+create a branch for your task. 
+create and commit a file to this branch.
+
+commit the notes you take for your task.
+--------------------------------------------------------------------------------------------------------------
 
 
 Goals for Procedural Terrain Generation:
