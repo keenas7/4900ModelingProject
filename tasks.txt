@@ -1,0 +1,32 @@
+A Basic split based on project requirements:
+
+Claim one of these topics to begin working by setting your name beside it.
+
+1. Procedural Terrain Generation 
+2. Parametric Volcano Topology
+3. Surface Texturing / Visualization
+
+
+Later: Lava Flow Modeling
+
+
+Goals for Procedural Terrain Generation:
+- Noise functions (Perlin, Simplex, or fractal noise) to generate height values. 
+- Convert those height values into a mesh (OF primitives like ofMesh or ofPlanePrimitive and adjusting vertices).
+- Understand coordinate mapping: how (x, y) maps to terrain height (z)
+- Implement heightmap generation and mesh construction to create Noise-based heightmaps.
+- Begin shaping terrain toward volcanic features (e.g., higher elevation in center, crater depressions).
+
+Goals for Parametric Volcano Topology:
+- Make the volcano itself adjustable, parametric, and reusable. “object-oriented”.
+- Define a Volcano class (Parameters: height, crater radius, slope angle, lava vent width, etc.)
+- Functions that can modify the base terrain mesh (controlling crater size, slope, and variation) using these parameters.
+- shape volcanoes procedurally.
+- this is the volcano parameter system.
+- preapre to coordinate integration with UI if we get to this point.
+
+Surface Texturing / Visualization
+- Texture mapping, shading, and visuals. 
+- design or source realistic textures.
+- Applying textures to meshes. Map textures based on vertex coordinates or height.
+- How to export or make textures (from photos or procedural noise).
