@@ -1,0 +1,12 @@
+/projectdir/bin/*
+!/projectdir/bin/data/
+
+/.vs
+
+*.sln
+*.vcxproj
+*.filters
+*.user
+*.make
+*.rc
+*.zip
