@@ -1,5 +1,6 @@
-/projectdir/bin/*
-!/projectdir/bin/data/
+4900L_FP/dll/
+4900L_FP/bin/*
+!/4900L_FP/bin/data/
 
 /.vs
 
@@ -10,3 +11,4 @@
 *.make
 *.rc
 *.zip
+
