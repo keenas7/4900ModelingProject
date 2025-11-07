@@ -44,24 +44,24 @@ void ofApp::update(){
 }
 
 void ofApp::regenCloud() {
-	positions.clear();
-	positions.reserve(particleCount);
+	pos.clear();
+	pos.reserve(particleCount);
 
 	// Randomly fill particles within a box structure
 	for (int i = 0; i < particleCount; ++i) {
 		float x = ofRandom(-protoWidth * 0.5f, protoWidth * 0.5f);
 		float y = ofRandom(-protoHeight * 0.5f, protoHeight * 0.5f);
 		float z = ofRandom(-protoDepth * 0.5f, protoDepth * 0.5f);
-		positions.emplace_back(x, y, z);
+		pos.emplace_back(x, y, z);
 	}
 
 	// update vertex buffer
-	if (!vbo.getIsAllocated() || vboVertexCount != positions.size()) {
+	if (!vbo.getIsAllocated() || vboVertexCount != pos.size()) {
 		// reallocate buffer for new size otherwise particle slider breaks
-		vbo.setVertexData(positions.data(), positions.size(), GL_DYNAMIC_DRAW);
-		vboVertexCount = positions.size();
+		vbo.setVertexData(pos.data(), pos.size(), GL_DYNAMIC_DRAW);
+		vboVertexCount = pos.size();
 	} else {
-		vbo.updateVertexData(positions.data(), positions.size());
+		vbo.updateVertexData(pos.data(), pos.size());
 	}
 
 }
@@ -74,7 +74,7 @@ void ofApp::draw(){
 
 	ofSetColor(220, 200, 140);
 	glPointSize(pointSize);
-	vbo.draw(GL_POINTS, 0, positions.size());
+	vbo.draw(GL_POINTS, 0, pos.size());
 
 	cam.end();
 
