@@ -26,25 +26,24 @@ class ofApp : public ofBaseApp{
 
 		// basic scene setup
 		ofEasyCam cam;
-		ofVbo vbo;
 
 		// particle data
-		std::vector<glm::vec3> pos; // particle positions
-		std::vector<glm::vec3> nrm; // particle normals
-		std::vector<uint8_t> state; // 0 = solid, 1 = surface
+		std::vector<glm::vec3> pPos; // particle positions
+		std::vector<glm::vec3> pNrm; // particle normals
+		std::vector<uint8_t> pState; // 0 = solid, 1 = surface
 
 		// mesh for rendering
 		ofVboMesh mesh;
 
 		// create grid
-		float cellSize = 8.0f;
+		ofParameter<float> cellSize = 8.0f;
 		glm::vec3 minBounds, maxBounds;
 		glm::ivec3 dim;
 		std::vector<std::vector<int>> buckets;
 
 		// helpers to map to grid
 		inline glm::ivec3 getCell(const glm::vec3& p) const {
-			glm::vec3 relativePos = (p - minBounds) / cellSize;
+			glm::vec3 relativePos = (p - minBounds) / cellSize.get();
 			return glm::ivec3(floor(relativePos.x), floor(relativePos.y), floor(relativePos.z));
 		}
 		inline int getCellIndex(const glm::ivec3& cell) const {
@@ -78,7 +77,7 @@ class ofApp : public ofBaseApp{
 		ofParameter<int> particleCount;
 
 		// listeners for sliders to regen particles
-		ofEventListener sizeListenerW, sizeListenerD, sizeListenerH, countListener;
+		ofEventListener sizeListenerW, sizeListenerD, sizeListenerH, countListener, cellSizeListener;
 
 		
 

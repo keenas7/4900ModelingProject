@@ -6,6 +6,8 @@ void ofApp::setup(){
 
 	// gui setup
 	gui.setup("Prototype Box Particle Structure");
+
+	// particle setup
 	pointSize.set("Point size (px)", 2.0f, 1.0f, 30.0f);
 	particleCount.set("Particle Count", 60000, 1000, 400000);
 
@@ -17,6 +19,8 @@ void ofApp::setup(){
 	bgColor.set("Background", ofColor(0, 0, 0));
 	showAxes.set("Show Axes", false);
 
+	cellSize.set("Cell Size (spacing)", 8.0f, 1.0f, 50.0f);
+
 	// add gui elements
 	gui.add(pointSize);
 	gui.add(particleCount);
@@ -25,12 +29,17 @@ void ofApp::setup(){
 	gui.add(protoDepth);
 	gui.add(bgColor);
 	gui.add(showAxes);
+	gui.add(cellSize);
 
 	// listeners for sliders
 	sizeListenerW = protoWidth.newListener([&](float&) { regenCloud(); });
 	sizeListenerD = protoHeight.newListener([&](float&) { regenCloud(); });
 	sizeListenerH = protoDepth.newListener([&](float&) { regenCloud(); });
 	countListener = particleCount.newListener([&](int&) { regenCloud(); });
+	cellSizeListener = cellSize.newListener([&](float&) { regenCloud(); });
+
+	// setup mesh
+	mesh.setMode(OF_PRIMITIVE_POINTS);
 
 	// generate the point cloud
 	regenCloud();
@@ -44,25 +53,79 @@ void ofApp::update(){
 }
 
 void ofApp::regenCloud() {
-	pos.clear();
-	pos.reserve(particleCount);
+	//pPos.clear();
+	
+	// save half-dimensions
+	float hX = protoWidth * 0.5f, hY = protoHeight * 0.5f, hZ = protoDepth * 0.5f;
 
-	// Randomly fill particles within a box structure
-	for (int i = 0; i < particleCount; ++i) {
-		float x = ofRandom(-protoWidth * 0.5f, protoWidth * 0.5f);
-		float y = ofRandom(-protoHeight * 0.5f, protoHeight * 0.5f);
-		float z = ofRandom(-protoDepth * 0.5f, protoDepth * 0.5f);
-		pos.emplace_back(x, y, z);
+	std::vector<glm::vec3> temp;
+	temp.reserve(particleCount);
+
+	// spacing
+	float s = cellSize.get();
+
+	// used to stop early
+	bool filled = false;
+
+	// NOTE: ooo, this runtime is not great.
+	for (float y = -hY; y <= hY; y += s) {
+		for (float z = -hZ; z <= hZ && !filled; z += s) {
+			for (float x = -hX; x <= hX; x += s) {
+				glm::vec3 p = {
+					x + ofRandomf() * 0.2f * s,
+					y + ofRandomf() * 0.2f * s,
+					z + ofRandomf() * 0.2f * s
+				};
+				temp.push_back(p);
+				if ((int)temp.size() >= particleCount) {
+					filled = true;
+					break;
+				}
+			}			
+		}
 	}
 
-	// update vertex buffer
-	if (!vbo.getIsAllocated() || vboVertexCount != pos.size()) {
-		// reallocate buffer for new size otherwise particle slider breaks
-		vbo.setVertexData(pos.data(), pos.size(), GL_DYNAMIC_DRAW);
-		vboVertexCount = pos.size();
-	} else {
-		vbo.updateVertexData(pos.data(), pos.size());
+	// now process ?
+	pPos = std::move(temp); 
+	int N = (int)pPos.size();
+	pNrm.assign(N, { 0,1,0 }); // assign normal
+	pState.assign(N, 0); // assign state
+
+	// add some extra margin for the particle bounds
+	minBounds = { -hX - s, -hY - s, -hZ - s };
+	maxBounds = { hX + s,  hY + s,  hZ + s };
+
+	// set dimensions 
+	dim = glm::ivec3(
+		std::max(1, (int)ceil((maxBounds.x - minBounds.x) / cellSize)),
+		std::max(1, (int)ceil((maxBounds.y - minBounds.y) / cellSize)),
+		std::max(1, (int)ceil((maxBounds.z - minBounds.z) / cellSize))
+	);
+
+	mesh.clear();
+	mesh.setMode(OF_PRIMITIVE_POINTS);
+	mesh.addVertices(pPos);
+	mesh.addColors(std::vector<ofFloatColor>(N, ofFloatColor(1)));
+
+	rebuildGrid();
+	//tagSurfaceParticles();
+
+
+}
+
+void ofApp::rebuildGrid() {
+	buckets.clear();
+	buckets.resize(dim.x * dim.y * dim.z);
+
+	for (int i = 0; i < (int)pPos.size(); ++i) {
+		glm::ivec3 c = getCell(pPos[i]);
+		if (c.x < 0 || c.y < 0 || c.z < 0 ||
+			c.x >= dim.x || c.y >= dim.y || c.z >= dim.z) {
+			continue;
+		}
+		buckets[getCellIndex(c)].push_back(i);
 	}
+
 
 }
 
@@ -74,7 +137,7 @@ void ofApp::draw(){
 
 	ofSetColor(220, 200, 140);
 	glPointSize(pointSize);
-	vbo.draw(GL_POINTS, 0, pos.size());
+	mesh.draw();
 
 	cam.end();
 
