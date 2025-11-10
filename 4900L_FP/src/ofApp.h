@@ -56,6 +56,9 @@ class ofApp : public ofBaseApp{
 		void rebuildGrid();
 		void tagSurfaceParticles();
 
+		template <class F>
+		void forNeighbours(int i, F&& fn);
+
 
 		ofParameter<ofColor> bgColor;
 
@@ -79,10 +82,16 @@ class ofApp : public ofBaseApp{
 		// listeners for sliders to regen particles
 		ofEventListener sizeListenerW, sizeListenerD, sizeListenerH, countListener, cellSizeListener;
 
+		// debug
+
 		
 
 		size_t vboVertexCount = 0;
-		
+
+		// debugging something right now
+		ofParameter<float> neighbourRadiusMul;
+		ofParameter<int>   surfaceThreshold;
+		ofEventListener radiusMulListener, thresholdListener;
 
 		
 
