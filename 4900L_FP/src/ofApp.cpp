@@ -9,7 +9,9 @@ void ofApp::setup(){
 
 	// particle setup
 	pointSize.set("Point size (px)", 2.0f, 1.0f, 30.0f);
-	particleCount.set("Particle Count", 100000, 1000, 400000);
+
+	// set to 100k particles to start
+	particleCount.set("Particle Count", 100000, 1000, 1000000);
 
 	// @todo: these values are hardcoded for now
 	protoWidth.set("Prototype Width (X)", 200.0f, 20.0f, 1000.0f);	
@@ -19,24 +21,34 @@ void ofApp::setup(){
 	bgColor.set("Background", ofColor(0, 0, 0));
 	showAxes.set("Show Axes", false);
 
-	cellSize.set("Cell Size (spacing)", 5.0f, 1.0f, 50.0f);
+	// the surface threshold function below computes these into one
+	cellSize.set("Cell Size (spacing)", 5.0f, 0.5f, 10.0f);
+	neighbourRadiusMul.set("Neighbor Radius ×", 0.7f, 0.05f, 1.0f);
+	
+	
 
-	neighbourRadiusMul.set("Neighbor Radius ×", 5.0f, 0.5f, 15.0f);
-	surfaceThreshold.set("Surface Threshold", 8, 2, 40);       
+
+	//surfaceThreshold.set("Surface Threshold", 15, 2, 100); 
+
+	beta.set("Surface ratio beta", 0.60f, 0.50f, 0.75f);
+	// keep this line if you want to try auto setting threshold
+	//surfaceThreshold.set(computeThreshold());
+
 
 	// add gui elements
 	gui.add(pointSize);
 	gui.add(particleCount);
-	gui.add(protoWidth);
-	gui.add(protoHeight);
-	gui.add(protoDepth);
-	gui.add(bgColor);
-	gui.add(showAxes);
+	//gui.add(protoWidth);
+	//gui.add(protoHeight);
+	//gui.add(protoDepth);
+	//gui.add(bgColor);
+	//gui.add(showAxes);
 	gui.add(cellSize);
 
-	gui.add(cellSize);
 	gui.add(neighbourRadiusMul);
 	gui.add(surfaceThreshold);
+
+	gui.add(beta);
 
 	// listeners for sliders
 	sizeListenerW = protoWidth.newListener([&](float&) { regenCloud(); });
@@ -67,11 +79,20 @@ void ofApp::update(){
 
 }
 
-void ofApp::regenCloud() {
-	
-	// save dimensions
+int ofApp::computeThreshold() {
+	const float W = protoWidth, H = protoHeight, D = protoDepth;
+	const float volume = std::max(1.0f, W * H * D);
+	const float rho = (float)pPos.size() / volume;
+	const float r = cellSize * neighbourRadiusMul;
+	const float Ni = rho * (4.0f / 3.0f) * glm::pi<float>() * r * r * r;
+	const int   thr = std::max(2, (int)std::lround(beta * Ni));
+	ofLogNotice() << "beta=" << beta << " r=" << r << " Ni=" << Ni << " thr=" << thr;
+	return thr;
+}
 
-	
+
+void ofApp::regenCloud() {
+		
 	// save half-dimensions
 	const float hX = protoWidth * 0.5f, hY = protoHeight * 0.5f, hZ = protoDepth * 0.5f;
 
@@ -84,36 +105,51 @@ void ofApp::regenCloud() {
 	// used to stop early
 	bool filled = false;
 
-	// build lattice, though this runtime isn't great
-	std::vector<glm::vec3> all;
-	all.reserve((size_t)((2 * hX / s + 1) * (2 * hY / s + 1) * (2 * hZ / s + 1)));
+
+	const int k = std::max(1, (int)particleCount.get());
+	temp.clear();
+	temp.reserve(k);
+
+	// rng setup once (apparently rand is deprecated?)
+	static std::mt19937 rng{ std::random_device{}() };
+	std::uniform_real_distribution<float> uni(-0.2f * s, 0.2f * s);
+
+	int64_t i = 0; // init cells
 	for (float y = -hY; y <= hY; y += s)
 		for (float z = -hZ; z <= hZ; z += s)
-			for (float x = -hX; x <= hX; x += s)
-				all.push_back({ x + ofRandomf() * 0.2f * s,
-								y + ofRandomf() * 0.2f * s,
-								z + ofRandomf() * 0.2f * s });
+			for (float x = -hX; x <= hX; x += s, ++i) {
 
-	// honestly this seems like a cheap solution to the core issue
-	if ((int)all.size() <= particleCount) {
-		// top up particles if under-filled
-		temp = std::move(all);
-		while ((int)temp.size() < particleCount) {
-			temp.push_back({ ofRandom(-hX, hX), ofRandom(-hY, hY), ofRandom(-hZ, hZ) });
-		}
+				glm::vec3 p{ x + uni(rng), y + uni(rng), z + uni(rng) };
+
+				if ((int)temp.size() < k) {
+					// fill points up initially
+					temp.push_back(p);
+				}
+				else {
+					// floyd's algo for randomness (a bit faster)
+					std::uniform_int_distribution<int64_t> pick(0, i);
+					int64_t j = pick(rng);
+					if (j < k) temp[(size_t)j] = p;
+				}
+
+			}
+
+	// If lattice underfills, top up
+	while ((int)temp.size() < k) {
+		temp.push_back({ ofRandom(-hX, hX), ofRandom(-hY, hY), ofRandom(-hZ, hZ) });
 	}
-	else {
-		// if overfilled, down-sample
-		static std::mt19937 rng{ std::random_device{}() }; // apparntly rand is deprecated
-		std::shuffle(all.begin(), all.end(), rng);
-		temp.assign(all.begin(), all.begin() + particleCount);
-	}
+
+	
 
 	// now process ?
 	pPos = std::move(temp); 
 	int N = (int)pPos.size();
 	pNrm.assign(N, { 0,1,0 }); // assign normal
 	pState.assign(N, 0); // assign state
+
+
+	ofLogNotice() << "Final number of points " << pPos.size();
+	ofLogNotice() << "Final number of cells: " << i;
 
 	// add some extra margin for the particle bounds
 	minBounds = { -hX - s, -hY - s, -hZ - s };
@@ -127,20 +163,34 @@ void ofApp::regenCloud() {
 		std::max(1, (int)ceil((maxBounds.z - minBounds.z) / cS))
 	);
 
-	mesh.clear();
-	mesh.setMode(OF_PRIMITIVE_POINTS);
-	mesh.addVertices(pPos);
-	mesh.addColors(std::vector<ofFloatColor>(N, ofFloatColor(1)));
+
+	// this section optimized to stop remaking mesh every time
+	if ((int)mesh.getVertices().size() != (int)pPos.size()) {
+		mesh.clear();
+		mesh.setMode(OF_PRIMITIVE_POINTS);
+		mesh.addVertices(pPos);
+		mesh.addColors(std::vector<ofFloatColor>(pPos.size(), ofFloatColor(1)));
+	}
+	else {
+		auto& verts = mesh.getVertices();
+		std::copy(pPos.begin(), pPos.end(), verts.begin());
+	}
 
 	rebuildGrid();
+	surfaceThreshold.set(computeThreshold());
 	tagSurfaceParticles();
 
 
 }
 
 void ofApp::rebuildGrid() {
-	buckets.clear();
-	buckets.resize(dim.x * dim.y * dim.z);
+	if ((int)buckets.size() != dim.x * dim.y * dim.z) {
+		buckets.clear();
+		buckets.resize(dim.x * dim.y * dim.z);
+	}
+	else {
+		for (auto& cell : buckets) cell.clear();
+	}
 
 	for (int i = 0; i < (int)pPos.size(); ++i) {
 		glm::ivec3 c = getCell(pPos[i]);
@@ -190,6 +240,8 @@ void ofApp::forNeighbours(int i, F&& fn) {
 
 
 void ofApp::tagSurfaceParticles() {
+
+
 	// set params for neighbourhood search
 	const float cS = std::max(1e-6f, cellSize.get());
 	const float r = cS * neighbourRadiusMul;
@@ -214,39 +266,47 @@ void ofApp::tagSurfaceParticles() {
 
 	// analyze each particle's neighbourhood
 	for (int i = 0; i < (int)pPos.size(); ++i) {
-		const glm::vec3 p = pPos[i]; // curremt particle position
+
+		if (i % 1000 == 0)
+			ofLogNotice() << "Analyzing point " << i;
+
+		const glm::vec3 p = pPos[i]; // current particle position
 
 		int neighbourCount = 0;		// how many neighbours within radius?
 		glm::vec3 grad(0.0f);		// accumulator for "repulsion" direction 
 
+		bool isInside = false;
+
+
 		// use helper to iterate through nearby particles
 		forNeighbours(i, [&](int j) {
+			if (isInside) return;
+
 			const glm::vec3 d = pPos[j] - p; // vector to neighbour
 			const float d2 = glm::dot(d, d); // squared distance
 			if (d2 <= r2) { // inside neighbour radius?
 				neighbourCount++;
+				if (neighbourCount >= thr) {
+					isInside = true;
+					return;
+				}
+
 				if (d2 > 1e-6f)
 					grad -= d / d2; // push away from neighbour
 			}
-		});
+			});
 
-
-		// is the particle at the surface ?
-		if (neighbourCount < thr) {
-			pState[i] = 1; // mark as surface (state 1)
-
-			// estimate normal - direction of least density (away from neighbours)
-			if (glm::length2(grad) > 1e-10f)
-				pNrm[i] = glm::normalize(grad);
-
-			cols[i] = ofFloatColor(1.0f, 0.6f, 0.25f);
-		}
-		else {
-			// not at surface
+		if (isInside) {
 			pState[i] = 0;
-			pNrm[i] = glm::vec3(0, 1, 0);
+			pNrm[i] = { 0,1,0 };
 			cols[i] = ofFloatColor(0.75f);
+			continue;
 		}
+
+		// surface case
+		pState[i] = 1;
+		if (glm::length2(grad) > 1e-10f) pNrm[i] = glm::normalize(grad);
+		cols[i] = ofFloatColor(1.0f, 0.6f, 0.25f);
 	}
 }
 

@@ -59,6 +59,8 @@ class ofApp : public ofBaseApp{
 		template <class F>
 		void forNeighbours(int i, F&& fn);
 
+		int computeThreshold();
+
 
 		ofParameter<ofColor> bgColor;
 
@@ -93,6 +95,8 @@ class ofApp : public ofBaseApp{
 		ofParameter<int>   surfaceThreshold;
 		ofEventListener radiusMulListener, thresholdListener;
 
-		
+		ofParameter<float> computedThr;
+
+		ofParameter<float> beta;
 
 };
