@@ -33,7 +33,7 @@ class ofApp : public ofBaseApp{
 		ofVboMesh mesh;
 
 		// grid/buckets
-		ofParameter<float> cellSize = 5.0f;   // grid cell size
+		ofParameter<float> cellSize = 3.0f;   // grid cell size
 		glm::vec3 minBounds, maxBounds;
 		glm::ivec3 dim;                // grid dimensions: # cells in x,y,z
 		std::vector<std::vector<int>> buckets;
@@ -43,7 +43,7 @@ class ofApp : public ofBaseApp{
 		float protoHeight = 50.0f;     // Y size of box
 		float protoDepth = 200.0f;    // Z size of box
 
-		float particleDensity = 0.25f;
+		float particleDensity = 0.5f;
 
 		float pointSize = 5.0f;
 		bool showAxes = false;

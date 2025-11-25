@@ -57,7 +57,7 @@ void ofApp::initSimulation() {
 
     // build grid and detect surface
     rebuildGrid();
-    //detectSurface();
+    detectSurface();
 
 }
 
@@ -89,6 +89,106 @@ void ofApp::rebuildGrid() {
         buckets[getCellIndex(c)].push_back(i);
     }
 }
+
+void ofApp::detectSurface() {
+
+    // total num of grid cells 
+    const int numCells = dim.x * dim.y * dim.z;
+
+    std::vector<uint8_t> cellOccupied(numCells, 0);
+    std::vector<uint8_t> cellIsSurface(numCells, 0);
+
+    // if cell contains >=1 particle, mark as solid (occupied)
+    for (int idx = 0; idx < numCells; ++idx) {
+        if (!buckets[idx].empty()) {
+            cellOccupied[idx] = 1;
+        }
+    }
+
+    // small helper to see if something is within bounds
+    auto inBounds = [&](int x, int y, int z) {
+        return (x >= 0 && x < dim.x &&
+            y >= 0 && y < dim.y &&
+            z >= 0 && z < dim.z);
+     };
+
+    // offsets for 6 neighbours, represent X/Y/Z directions
+    const glm::ivec3 offsets[6] = {
+        { 1, 0, 0 }, { -1, 0, 0 },
+        { 0, 1, 0 }, {  0,-1, 0 },
+        { 0, 0, 1 }, {  0, 0,-1 }
+    };
+
+    // mark surface cells: occupied + >= 1 empty neighbour
+    for (int x = 0; x < dim.x; ++x) {
+        for (int y = 0; y < dim.y; ++y) {
+            for (int z = 0; z < dim.z; ++z) {
+
+                // convert 3d index to 1d 
+                int idx = (x * dim.y + y) * dim.z + z;
+                
+                // skip empty cells (occupied are surface)
+                if (!cellOccupied[idx]) continue;
+                
+                // flag for if any of 6 neighbours empty
+                bool hasEmptyNeighbor = false;
+                
+                // check all 6 neighbours now
+                for (const auto& off : offsets) {
+                    int nx = x + off.x;
+                    int ny = y + off.y;
+                    int nz = z + off.z;
+
+                    // if outside grid, is empty neighbour
+                    if (!inBounds(nx, ny, nz)) {
+                        hasEmptyNeighbor = true;
+                        break;
+                    }
+                    // again, convert neighbour to 1D index
+                    int nIdx = (nx * dim.y + ny) * dim.z + nz;
+                    
+                    // iff neighbour cell empty, we're at a surface now
+                    if (!cellOccupied[nIdx]) {
+                        hasEmptyNeighbor = true;
+                        break;
+                    }
+                }
+
+                // if detected at least one neighbouring empty cell, mark as surface cell
+                if (hasEmptyNeighbor) {
+                    cellIsSurface[idx] = 1;
+                }
+            }
+        }
+    }
+
+    // apply states/normals to particles
+    pState.assign(pPos.size(), 0);
+    pNrm.assign(pPos.size(), glm::vec3(0, 1, 0));
+
+    auto& cols = mesh.getColors();
+
+    for (int cellIdx = 0; cellIdx < numCells; ++cellIdx) {
+        bool isSurfCell = (cellIsSurface[cellIdx] != 0);
+        const auto& cellParticles = buckets[cellIdx];
+
+        // mark each particle a colour for inside or surface
+        for (int pi : cellParticles) {
+            if (isSurfCell) {
+                pState[pi] = 1;
+                cols[pi] = ofFloatColor(1.0f, 0.6f, 0.25f); // surface is orange
+            }
+            else {
+                pState[pi] = 0;
+                //cols[pi] = ofFloatColor(0.75f); // interior is grey
+                cols[pi] = ofFloatColor(1.0f, 1.0f, 1.0f, 0.0f); // interior invisible (this is for debug)
+            }
+        }
+    }
+
+}
+
+
 
 //--------------------------------------------------------------
 void ofApp::update(){
